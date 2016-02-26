@@ -12,20 +12,7 @@
 #include <getopt.h>
 #include <string.h>
 
-/* struct to hold parsed validated user input
- * char *start_path directory/file name
- * int name_flag    do we have a name switch?
- * int type_flag    do we have a type switch?
- * char *name_arg   dir or file name/pattern to search for
- * char type_arg    file type to search for
- */
-struct opt_info {
-    char *start_path;
-    int name_flag;
-    int type_flag;
-    char *name_arg;
-    char type_arg;
-};
+
 
 /* collect options for getopts */
 static struct option longopts[] = {
@@ -90,14 +77,14 @@ int main(int argc, char * argv[]) {
     int c = 0;
     int index;
     const char *optstr = "t:n:h?";
-
+    printf("argc=%d, optind=%d\n", argc, optind);
     while ((c = getopt_long_only(argc, argv, optstr, longopts, &index)) != -1) {
         switch (c) {
             case 'n':
                 if ((name_flag += 1) > 1) {
                     printf("only 1 -name parameter allowed \n");
                     print_usage();
-
+                    exit(EXIT_FAILURE);
                 }
                 name_arg = optarg;
                 break;
@@ -120,10 +107,15 @@ int main(int argc, char * argv[]) {
         }
     }
 
+    printf("argc=%d, optind=%d\n", argc, optind);
     if (optind >= 1) {
-        start_path = argv[1];
+        start_path = argv[optind];
     }
 
+    if (start_path == NULL) {
+        start_path = ".";
+    }
+    
     struct opt_info optinfo;
     memset ( &optinfo, 0, sizeof(optinfo) );
     populate_optinfo(start_path, name_flag, type_flag, 
@@ -131,7 +123,7 @@ int main(int argc, char * argv[]) {
 
 
     /* search for something */
-    search_dir ( optinfo.start_path );
+    search_dir ( "", optinfo.start_path, &optinfo, 0 );
     return (EXIT_SUCCESS);
 
 }
@@ -148,15 +140,18 @@ int populate_optinfo(char *start_path,
 
     int isvalid = EXIT_SUCCESS;
     /* set correct directory */
+    printf("[populate_optinfo] startpath=\"%s\"\n", start_path);
     optinfo->start_path = start_path;
     if (start_path == NULL) {
         getcwd(optinfo->start_path, sizeof (optinfo->start_path));
     }
 
-    
+    /* if no name make it * cuz that's how I roll */
+    if( name_arg == NULL ) {
+       name_arg = "*"; 
+    }
 
     /* populate the optinfo */
-    optinfo->name_arg = start_path;
     optinfo->name_flag = name_flag;
     optinfo->type_flag = type_flag;
     optinfo->name_arg = name_arg;
