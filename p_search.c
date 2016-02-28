@@ -53,8 +53,6 @@ void search_dir(char *parentdir, char * dirname, struct opt_info * opts) {
 
         int err = readdir_r(dir_ptr, &entry, &next_dir);
         if (err != 0) {
-            /* readdir fails silently */
-            /* report_err("readdir", dirname); */
             continue;
         }
 
