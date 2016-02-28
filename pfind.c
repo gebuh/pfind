@@ -33,7 +33,7 @@ static void print_usage() {
     printf("-h          print usage\n");
 }
 
-static int populate_optinfo(char *start_path,
+static void populate_optinfo(char *start_path,
         int name_flag,
         int type_flag,
         char *name_arg,
@@ -42,29 +42,8 @@ static int populate_optinfo(char *start_path,
 
 static int validate_type_arg(char* type_arg);
 
-/* validate type_arg length and against the allowable file types
- * if not return exit_failure
- */
-int validate_type_arg(char* type_arg) {
-
-    /* should only be one char */
-    if ((strlen(optarg)) > 1) {
-        printf("too many characters for -type\n");
-        return EXIT_FAILURE;
-    }
-
-    const char allowable[] = "fdbcpls";
-    int len = strspn(allowable, type_arg);
-    /* only one of allowable chars */
-    if (len != 1) {
-        printf("%s is not an allowable character\n", type_arg);
-        return EXIT_FAILURE;
-    }
-    return EXIT_SUCCESS;
-}
-
 /*
- * 
+ * collect options, run the search
  */
 int main(int argc, char * argv[]) {
     int type_flag = 0; /* count number of -type args */
@@ -77,21 +56,21 @@ int main(int argc, char * argv[]) {
     int c = 0;
     int index;
     const char *optstr = "t:n:h?";
-    printf("argc=%d, optind=%d\n", argc, optind);
+    opterr = 0; /* I want to use a custom message */
+
     while ((c = getopt_long_only(argc, argv, optstr, longopts, &index)) != -1) {
         switch (c) {
             case 'n':
                 if ((name_flag += 1) > 1) {
-                    printf("only 1 -name parameter allowed \n");
-                    print_usage();
                     exit(EXIT_FAILURE);
                 }
                 name_arg = optarg;
                 break;
             case 't':
-                if ((validate_type_arg(optarg)) != EXIT_SUCCESS ) {
-                    printf("-type param incorrect \n");
-                    print_usage();
+                if ((validate_type_arg(optarg)) != EXIT_SUCCESS) {
+                    exit(EXIT_FAILURE);
+                }
+                if ((type_flag += 1) > 1) {
                     exit(EXIT_FAILURE);
                 }
                 type_arg = optarg;
@@ -100,68 +79,86 @@ int main(int argc, char * argv[]) {
                 print_usage();
                 exit(EXIT_SUCCESS);
             case '?':
-                printf("you did something wrong\n");
-                print_usage();
+                if (optopt) {
+                    printf("pfind: missing argument to `%s'\n",
+                            argv[optind - 1]);
+                } else {
+                    printf("pfind: unknown predicate `%s'\n",
+                            argv[optind - 1]);
+                } /* go ahead and fall thru */
             default:
                 exit(EXIT_FAILURE);
         }
     }
 
-    printf("argc=%d, optind=%d\n", argc, optind);
-    if (optind >= 1) {
+    if (optind >= 1) { /* get the start path if it exists */
         start_path = argv[optind];
     }
 
-    if (start_path == NULL) {
+    if (start_path == NULL) { /* no start path provided? use current dir */
         start_path = ".";
     }
-    
+
     struct opt_info optinfo;
-    memset ( &optinfo, 0, sizeof(optinfo) );
-    populate_optinfo(start_path, name_flag, type_flag, 
-        name_arg, type_arg, &optinfo);
+    memset(&optinfo, 0, sizeof (optinfo));
+    populate_optinfo(start_path, name_flag, type_flag,
+            name_arg, type_arg, &optinfo);
 
 
     /* search for something */
-    search_dir ( "", optinfo.start_path, &optinfo, 0 );
+    search_dir("", optinfo.start_path, &optinfo);
     return (EXIT_SUCCESS);
 
 }
 
 /* populate opt_info struct with 
- * 
+ * user input
  */
-int populate_optinfo(char *start_path,
+void populate_optinfo(char *start_path,
         int name_flag,
         int type_flag,
         char *name_arg,
         char *type_arg,
         struct opt_info *optinfo) {
 
-    int isvalid = EXIT_SUCCESS;
-    /* set correct directory */
-    printf("[populate_optinfo] startpath=\"%s\"\n", start_path);
+    /* set correct directory or fail */
     optinfo->start_path = start_path;
-    if (start_path == NULL) {
-        getcwd(optinfo->start_path, sizeof (optinfo->start_path));
-    }
 
-    /* if no name make it * cuz that's how I roll */
-    if( name_arg == NULL ) {
-       name_arg = "*"; 
+
+    /* if no name given use  * you'll thank me later */
+    if (name_arg == NULL) {
+        name_arg = "*";
     }
 
     /* populate the optinfo */
     optinfo->name_flag = name_flag;
     optinfo->type_flag = type_flag;
     optinfo->name_arg = name_arg;
-    
+
     /*convert the string to a char */
-    if (type_flag == 1) { 
+    if (type_flag == 1) {
         optinfo->type_arg = type_arg[0];
     }
+}
 
-    return isvalid;
+/* validate type_arg length and against the allowable file types
+ * if not return exit_failure
+ */
+int validate_type_arg(char* type_arg) {
+    /* should only be one char */
+    if ((strlen(optarg)) > 1) {
+        printf("Arguments to -type should contain only one letter\n");
+        return EXIT_FAILURE;
+    }
+
+    const char allowable[] = "fdbcpls";
+    int len = strspn(type_arg, allowable);
+    /* only one of allowable chars */
+    if (len != 1) {
+        printf("Unknown argument to -type: %s\n", type_arg);
+        return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
 }
 
 
