@@ -14,7 +14,7 @@
 #include <glob.h>
 #include <sys/stat.h>
 
-/* recursively iterate through starting directory 
+/* recurse through starting directory 
  *  print out matching resources/types
  */
 void search_dir(char *parentdir, char * dirname, struct opt_info * opts) {
